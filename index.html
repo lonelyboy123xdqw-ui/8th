@@ -1,0 +1,1020 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>LOVE.EXE</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=VT323&display=swap');
+
+/* ── RESET ── */
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+
+:root{
+  --g:#00ff41;--p:#ff69b4;--c:#00ffff;
+  --r:#ff3333;--y:#ffff00;--d:#003b00;
+}
+
+body{
+  background:#000;color:var(--g);
+  font-family:'Share Tech Mono','Courier New',monospace;
+  overflow-x:hidden;min-height:100vh;cursor:none;
+}
+
+/* ── PERF LAYERS ── */
+canvas{position:fixed;inset:0;pointer-events:none}
+#mc{z-index:0;opacity:.09;will-change:transform}
+#pc{z-index:1;will-change:transform}
+
+/* ── CURSOR ── */
+#cur,#cdot{position:fixed;pointer-events:none;z-index:99999;will-change:transform}
+#cur{width:16px;height:16px;border:2px solid var(--g);border-radius:50%;
+  mix-blend-mode:screen;transform:translate(-50%,-50%)}
+#cdot{width:4px;height:4px;background:var(--g);border-radius:50%;
+  transform:translate(-50%,-50%)}
+
+/* ── CRT ── */
+#crt{
+  position:fixed;inset:0;z-index:9000;pointer-events:none;
+  background:repeating-linear-gradient(0deg,transparent,transparent 2px,
+    rgba(0,0,0,.07) 2px,rgba(0,0,0,.07) 4px);
+  animation:flicker 8s infinite;
+}
+@keyframes flicker{
+  0%,89%,91%,100%{opacity:1}
+  90%{opacity:.6}
+}
+#vig{
+  position:fixed;inset:0;z-index:8999;pointer-events:none;
+  background:radial-gradient(ellipse at center,transparent 55%,rgba(0,0,0,.8) 100%);
+}
+
+/* ── HEART RAIN ── */
+#hr{position:fixed;inset:0;pointer-events:none;z-index:8990;display:none}
+.ht{
+  position:absolute;top:-60px;
+  animation:hfall linear forwards;
+  filter:drop-shadow(0 0 8px var(--p));
+  will-change:transform;
+}
+@keyframes hfall{
+  to{transform:translateY(115vh) rotate(720deg) scale(.4);opacity:0}
+}
+
+/* ════════════════════════════════════
+   FULL-SCREEN COVER CLICK OVERLAY
+════════════════════════════════════ */
+#cover{
+  position:fixed;inset:0;z-index:99998;
+  background:#000;
+  display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  gap:28px;cursor:pointer;
+  transition:opacity .6s ease;
+}
+/* Animated grid behind cover */
+#cover::before{
+  content:'';position:absolute;inset:0;
+  background-image:
+    linear-gradient(rgba(0,255,65,.04) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(0,255,65,.04) 1px,transparent 1px);
+  background-size:40px 40px;
+  animation:gridmove 4s linear infinite;
+}
+@keyframes gridmove{to{background-position:40px 40px}}
+
+/* Glowing ring pulse */
+#cover::after{
+  content:'';position:absolute;
+  width:300px;height:300px;border-radius:50%;
+  border:1px solid rgba(0,255,65,.15);
+  box-shadow:0 0 80px rgba(0,255,65,.08),
+             0 0 160px rgba(255,105,180,.05);
+  animation:ring 3s ease-in-out infinite;
+}
+@keyframes ring{
+  0%,100%{transform:scale(1);opacity:.5}
+  50%{transform:scale(1.3);opacity:1}
+}
+
+.cover-logo{
+  font-family:'VT323',monospace;
+  font-size:clamp(3rem,12vw,7rem);
+  color:var(--g);
+  text-shadow:0 0 20px var(--g),0 0 60px var(--g),0 0 120px rgba(0,255,65,.3);
+  animation:glit 2.5s infinite;
+  letter-spacing:.25em;
+  position:relative;z-index:1;
+}
+.cover-logo::before,.cover-logo::after{
+  content:attr(data-t);position:absolute;inset:0;
+}
+.cover-logo::before{
+  color:var(--p);animation:gb 2.5s infinite;
+  clip-path:polygon(0 20%,100% 20%,100% 45%,0 45%);
+}
+.cover-logo::after{
+  color:var(--c);animation:ga 2.5s infinite;
+  clip-path:polygon(0 60%,100% 60%,100% 80%,0 80%);
+}
+@keyframes glit{
+  0%,100%{transform:none}
+  20%{transform:skew(-1.5deg)}21%{transform:none}
+  60%{transform:skew(.8deg)} 61%{transform:none}
+}
+@keyframes gb{
+  0%,100%{transform:none}
+  20%{transform:translateX(-4px)}21%{transform:none}
+}
+@keyframes ga{
+  0%,100%{transform:none}
+  40%{transform:translateX(4px)}41%{transform:none}
+}
+
+.cover-sub{
+  color:var(--p);font-size:.9rem;letter-spacing:.35em;
+  text-shadow:0 0 12px var(--p);position:relative;z-index:1;
+  animation:blink 2s step-end infinite;
+}
+.cover-warn{
+  color:rgba(0,255,65,.4);font-size:.7rem;letter-spacing:.2em;
+  position:relative;z-index:1;
+}
+.cover-btn{
+  position:relative;z-index:1;
+  background:transparent;border:2px solid var(--g);
+  color:var(--g);font-family:'Share Tech Mono',monospace;
+  font-size:1rem;padding:16px 50px;cursor:pointer;
+  letter-spacing:.4em;text-transform:uppercase;
+  box-shadow:0 0 25px rgba(0,255,65,.3),
+             inset 0 0 25px rgba(0,255,65,.05);
+  transition:all .3s;overflow:hidden;
+}
+.cover-btn::before{
+  content:'';position:absolute;top:-100%;left:-100%;
+  width:300%;height:300%;
+  background:linear-gradient(45deg,transparent 30%,
+    rgba(0,255,65,.12) 50%,transparent 70%);
+  animation:shine 2.5s infinite;
+}
+@keyframes shine{to{transform:translate(200%,200%)}}
+.cover-btn:hover{
+  background:var(--g);color:#000;
+  box-shadow:0 0 50px var(--g),0 0 100px rgba(0,255,65,.4);
+  transform:scale(1.06);
+}
+
+/* Scanline sweep on cover */
+.cover-scan{
+  position:absolute;inset:0;pointer-events:none;z-index:2;
+  background:linear-gradient(transparent 0%,
+    rgba(0,255,65,.03) 50%,transparent 100%);
+  background-size:100% 8px;
+  animation:scan 3s linear infinite;
+}
+@keyframes scan{to{background-position:0 100vh}}
+
+/* ── BOOT SCREEN (after cover) ── */
+#boot{
+  position:fixed;inset:0;background:#000;
+  display:none;flex-direction:column;
+  align-items:center;justify-content:center;
+  z-index:9997;gap:12px;padding:20px;
+}
+.boot-line{
+  color:var(--g);font-size:.85rem;letter-spacing:.1em;
+  opacity:0;transition:opacity .2s;
+  text-align:center;
+}
+.boot-line.on{opacity:1}
+.boot-bar-wrap{
+  width:min(400px,80vw);height:4px;
+  background:#0a0a0a;border:1px solid #1a1a1a;margin-top:20px;
+}
+.boot-bar-fill{
+  height:100%;width:0%;
+  background:linear-gradient(90deg,var(--g),var(--c));
+  box-shadow:0 0 10px var(--g);
+  transition:width .1s linear;
+}
+.boot-pct{color:var(--g);font-size:1.8rem;font-family:'VT323',monospace;
+  text-shadow:0 0 10px var(--g);}
+
+/* ── TERMINAL ── */
+#terminal{
+  position:relative;z-index:10;
+  max-width:860px;margin:0 auto;
+  padding:40px 20px 100px;min-height:100vh;
+  contain:layout style;
+}
+
+/* ── LINES ── */
+.ln{
+  line-height:1.75;margin:2px 0;
+  opacity:0;word-break:break-word;
+  white-space:pre-wrap;
+  contain:layout style paint;
+}
+.ln.on{opacity:1}
+
+.cg{color:var(--g)}
+.cp{color:var(--p);text-shadow:0 0 8px var(--p)}
+.cc{color:var(--c)}
+.cr{color:var(--r)}
+.cy{color:var(--y)}
+.cw{color:#fff}
+.cd{color:#444}
+
+.gg{text-shadow:0 0 10px var(--g),0 0 25px var(--g)}
+.gp{text-shadow:0 0 10px var(--p),0 0 25px var(--p)}
+.gc{text-shadow:0 0 10px var(--c),0 0 25px var(--c)}
+
+/* ── ASCII ── */
+.asc{
+  color:var(--p);
+  text-shadow:0 0 10px var(--p),0 0 25px rgba(255,105,180,.3);
+  font-size:clamp(5px,1.1vw,10px);
+  line-height:1.15;white-space:pre;
+  animation:glit 4s infinite;
+}
+
+/* ── PROGRESS ── */
+.pw{display:flex;align-items:center;gap:8px;margin:2px 0}
+.pb{
+  height:10px;flex:1;max-width:220px;
+  background:#0a0a0a;border:1px solid #1a3a1a;
+  overflow:hidden;
+}
+.pf{
+  height:100%;width:0%;
+  background:linear-gradient(90deg,var(--g),var(--c));
+  box-shadow:0 0 6px var(--g);
+  transition:width 1s cubic-bezier(.4,0,.2,1);
+}
+.pl{color:var(--g);font-size:.8rem;min-width:38px}
+
+/* ── STATS ── */
+.sb{
+  display:none;
+  grid-template-columns:1fr 1fr;gap:8px 16px;
+  border:1px solid #111;padding:14px;margin:8px 0;
+  background:rgba(0,255,65,.02);
+}
+.si .sl{color:#444;font-size:.7rem;letter-spacing:.1em}
+.si .sv{
+  color:var(--p);font-size:1.2rem;
+  text-shadow:0 0 6px var(--p);
+  font-family:'VT323',monospace;
+}
+
+/* ── LOVE LETTER ── */
+#lb{
+  display:none;
+  border:1px solid var(--p);padding:28px;margin:14px 0;
+  background:rgba(255,105,180,.03);
+  box-shadow:0 0 30px rgba(255,105,180,.1),
+             inset 0 0 30px rgba(255,105,180,.02);
+  color:#ffb6c1;line-height:2;position:relative;
+}
+#lb::before{
+  content:'';position:absolute;inset:0;
+  background:repeating-linear-gradient(45deg,
+    transparent,transparent 40px,
+    rgba(255,105,180,.012) 40px,rgba(255,105,180,.012) 80px);
+  pointer-events:none;
+}
+.ll{
+  opacity:0;transform:translateY(5px);
+  transition:opacity .35s,transform .35s;
+  position:relative;z-index:1;
+}
+.ll.on{opacity:1;transform:none}
+
+/* ── COUNTDOWN ── */
+#cdb{
+  display:none;
+  border:1px solid var(--c);padding:16px;margin:8px 0;
+  background:rgba(0,255,255,.02);text-align:center;
+}
+.cdl{color:var(--c);font-size:.75rem;letter-spacing:.25em;margin-bottom:8px}
+.cdv{
+  font-family:'VT323',monospace;
+  font-size:clamp(2rem,6vw,3.5rem);
+  color:var(--c);text-shadow:0 0 20px var(--c);
+  letter-spacing:.08em;
+}
+.cds{color:#444;font-size:.75rem;margin-top:6px}
+
+/* ── FINAL BANNER ── */
+#fb{
+  display:none;text-align:center;
+  padding:30px 20px;margin:20px 0;
+  border:2px solid var(--p);
+  background:rgba(255,105,180,.04);
+  animation:pb 2s ease-in-out infinite;
+}
+@keyframes pb{
+  0%,100%{box-shadow:0 0 40px rgba(255,105,180,.2)}
+  50%{box-shadow:0 0 80px rgba(255,105,180,.5),0 0 140px rgba(255,105,180,.15)}
+}
+#fb h1{
+  font-family:'VT323',monospace;
+  font-size:clamp(2rem,8vw,4.5rem);
+  color:var(--p);
+  text-shadow:0 0 20px var(--p),0 0 60px var(--p);
+  animation:glit 1.5s infinite;letter-spacing:.1em;
+}
+#fb p{color:#ffb6c1;margin-top:10px;font-size:.95rem;letter-spacing:.15em}
+
+@keyframes blink{50%{opacity:0}}
+</style>
+</head>
+<body>
+
+<div id="cur"></div>
+<div id="cdot"></div>
+<div id="crt"></div>
+<div id="vig"></div>
+<canvas id="mc"></canvas>
+<canvas id="pc"></canvas>
+<div id="hr"></div>
+
+<!-- ══ FULL SCREEN COVER ══ -->
+<div id="cover" onclick="coverClick()">
+  <div class="cover-scan"></div>
+  <div class="cover-logo" data-t="LOVE.EXE">LOVE.EXE</div>
+  <div class="cover-sub">[ CLICK ANYWHERE TO OPEN ]</div>
+  <div class="cover-warn">⚠ CLASSIFIED — AUTHORIZED PERSONNEL ONLY ⚠</div>
+  <button class="cover-btn" onclick="coverClick()">[ INITIALIZE ]</button>
+</div>
+
+<!-- ══ BOOT SCREEN ══ -->
+<div id="boot">
+  <div class="boot-line" id="bl0">> INITIALIZING LOVE.EXE v8.0.0...</div>
+  <div class="boot-line" id="bl1">> LOADING HEART MODULE...</div>
+  <div class="boot-line" id="bl2">> BYPASSING DISTANCE FIREWALL...</div>
+  <div class="boot-line" id="bl3">> DECRYPTING 8 MONTHS OF MEMORIES...</div>
+  <div class="boot-line" id="bl4">> CALIBRATING LOVE LEVELS... [OVERFLOW DETECTED]</div>
+  <div class="boot-line" id="bl5" style="color:var(--p)">> ALL SYSTEMS READY — LAUNCHING 💚</div>
+  <div class="boot-bar-wrap"><div class="boot-bar-fill" id="bbf"></div></div>
+  <div class="boot-pct" id="bpct">0%</div>
+</div>
+
+<div id="terminal"></div>
+
+<script>
+/* ══════════════════════════════════
+   💕  EDIT THIS SECTION ONLY  💕
+══════════════════════════════════ */
+const HER_NAME    = "Baby";
+const YOUR_NAME   = "Your Name";
+const MONTHS      = "8";
+const START_DATE  = "06 Feb 2026";
+const NEXT_MEETUP = "2026-12-25";   // YYYY-MM-DD
+const DISTANCE    = "1,247 km";
+
+const MEMORIES = [
+  "First 'good morning' text that changed everything 🌅",
+  "First late-night call that lasted until dawn 🌙",
+  "First fight. First makeup. Fell even harder. 🫂",
+  "Realizing you were everything I ever wanted 💡",
+  "Missing you so much it physically hurt 😔",
+  "Choosing you every single day across the miles 🌍",
+  "Knowing with certainty you are worth the wait 💪",
+  "RIGHT NOW. This exact moment. Still so in love 💕"
+];
+
+const LOVE_LETTER =
+`My love,\n\n${MONTHS} months. I thought I knew what love felt like before you.\nI had absolutely no idea.\n\nYou came into my life and quietly rearranged everything — the way\nI think, the way I feel, the way I see the future. And somehow,\neven from miles away, you make every single day better just by\nexisting in it.\n\nThe distance is hard. Some nights I stare at my phone waiting\nfor your name to light up my screen, and I think — how is it\npossible to miss someone this much? But then you text. Or you\nlaugh. Or you say something so perfectly you, and suddenly the\nmiles mean nothing at all.\n\nYou are the most extraordinary person I have ever known.\nAnd I am the luckiest person alive to get to love you.\n\n${MONTHS} months down. Forever to go.\n\nAll my love, always —\n${YOUR_NAME} 💕`;
+
+/* ══════════════════════════════════
+   🚫  DO NOT EDIT BELOW THIS  😄
+══════════════════════════════════ */
+
+// ── AUDIO ENGINE ────────────────────────────
+let AX = null;
+function ax(){
+  if(!AX) AX = new(window.AudioContext||window.webkitAudioContext)();
+  if(AX.state==='suspended') AX.resume();
+  return AX;
+}
+
+// Basic tone
+function tone(freq,dur,type='square',vol=0.04,delay=0){
+  try{
+    const c=ax(),o=c.createOscillator(),g=c.createGain();
+    o.connect(g);g.connect(c.destination);
+    o.type=type;o.frequency.value=freq;
+    g.gain.setValueAtTime(0,c.currentTime+delay);
+    g.gain.linearRampToValueAtTime(vol,c.currentTime+delay+0.01);
+    g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+delay+dur);
+    o.start(c.currentTime+delay);
+    o.stop(c.currentTime+delay+dur+0.05);
+  }catch(e){}
+}
+
+// Sweep / laser sound
+function laser(startF,endF,dur=0.15,vol=0.05){
+  try{
+    const c=ax(),o=c.createOscillator(),g=c.createGain();
+    o.connect(g);g.connect(c.destination);
+    o.type='sawtooth';
+    o.frequency.setValueAtTime(startF,c.currentTime);
+    o.frequency.exponentialRampToValueAtTime(endF,c.currentTime+dur);
+    g.gain.setValueAtTime(vol,c.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+dur);
+    o.start();o.stop(c.currentTime+dur+0.05);
+  }catch(e){}
+}
+
+// Noise burst (static / glitch)
+function noise(dur=0.08,vol=0.06){
+  try{
+    const c=ax(),buf=c.createBuffer(1,c.sampleRate*dur,c.sampleRate);
+    const d=buf.getChannelData(0);
+    for(let i=0;i<d.length;i++) d[i]=(Math.random()*2-1);
+    const s=c.createBufferSource(),g=c.createGain();
+    s.buffer=buf;s.connect(g);g.connect(c.destination);
+    g.gain.setValueAtTime(vol,c.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+dur);
+    s.start();
+  }catch(e){}
+}
+
+// ── SOUND LIBRARY ────────────────────────────
+const SFX = {
+  // Big dramatic boot intro
+  boot(){
+    laser(80,400,.25,.08);
+    setTimeout(()=>laser(200,800,.2,.07),200);
+    setTimeout(()=>laser(100,1200,.3,.09),400);
+    setTimeout(()=>{
+      [130,164,196,261,329,392,523].forEach((f,i)=>
+        tone(f,.15,'sine',.06,i*.06));
+    },700);
+  },
+  // Typewriter click per line
+  tick(){
+    tone(800+Math.random()*400,.04,'square',.025);
+  },
+  // Access granted
+  granted(){
+    [392,494,587,784].forEach((f,i)=>
+      tone(f,.12,'sine',.07,i*.07));
+    setTimeout(()=>laser(400,1200,.2,.08),300);
+  },
+  // Alert / warning
+  alert(){
+    [200,0,200,0,300].forEach((f,i)=>{
+      if(f) tone(f,.06,'square',.06,i*.08);
+    });
+    noise(.05,.04);
+  },
+  // Glitch
+  glitch(){
+    noise(.12,.09);
+    laser(600,50,.1,.06);
+    setTimeout(()=>noise(.08,.07),60);
+    setTimeout(()=>laser(800,100,.1,.05),80);
+  },
+  // Memory found
+  memFound(i){
+    tone(261+(i*30),.1,'sine',.05);
+    setTimeout(()=>tone(392+(i*20),.08,'sine',.04),80);
+  },
+  // Progress fill sweep
+  progress(){
+    laser(200,600,.4,.04);
+  },
+  // Countdown reveal
+  countdown(){
+    [523,659,784].forEach((f,i)=>tone(f,.1,'sine',.06,i*.1));
+    setTimeout(()=>laser(784,1200,.2,.06),350);
+  },
+  // Letter decrypt
+  decrypt(){
+    const freqs=[300,400,500,600,700,800,900,1000,800,600,400,200];
+    freqs.forEach((f,i)=>tone(f,.06,'sawtooth',.04,i*.04));
+    setTimeout(()=>laser(200,2000,.4,.07),500);
+    setTimeout(()=>noise(.1,.05),600);
+  },
+  // FINAL BOSS - heart explosion
+  final(){
+    // Epic rising synth
+    laser(80,2000,.6,.1);
+    setTimeout(()=>laser(120,1600,.5,.09),100);
+    // chord
+    setTimeout(()=>{
+      [261,329,392,523,659,784].forEach((f,i)=>
+        tone(f,.5,'sine',.07,i*.03));
+    },500);
+    // second wave
+    setTimeout(()=>{
+      [523,659,784,1047].forEach((f,i)=>
+        tone(f,.4,'triangle',.06,i*.05));
+    },900);
+    // noise sweep
+    setTimeout(()=>noise(.2,.08),600);
+    setTimeout(()=>{
+      laser(2000,200,.4,.08);
+      [784,659,523,392].forEach((f,i)=>
+        tone(f,.2,'sine',.05,i*.08));
+    },1400);
+  },
+  // Line beep
+  line(){
+    if(Math.random()<.4)
+      tone(180+Math.random()*120,.03,'square',.018);
+  }
+};
+
+// ── CURSOR ──────────────────────────────────
+const $cur=document.getElementById('cur');
+const $dot=document.getElementById('cdot');
+let mx=0,my=0,cx=0,cy=0;
+document.addEventListener('mousemove',e=>{mx=e.clientX;my=e.clientY});
+(function moveCursor(){
+  cx+=(mx-cx)*.2; cy+=(my-cy)*.2;
+  $cur.style.transform=`translate(${cx-8}px,${cy-8}px)`;
+  $dot.style.transform=`translate(${mx-2}px,${my-2}px)`;
+  requestAnimationFrame(moveCursor);
+})();
+
+// ── MATRIX RAIN ─────────────────────────────
+const MC=document.getElementById('mc');
+const MX=MC.getContext('2d');
+function resizeMatrix(){
+  MC.width=window.innerWidth;
+  MC.height=window.innerHeight;
+}
+resizeMatrix();
+window.addEventListener('resize',resizeMatrix,{passive:true});
+
+const MCHARS='アイウエオカキクケコLOVE♥01アサタナ';
+const MFS=14;
+let MCOLS=Math.floor(MC.width/MFS);
+let MDROPS=Array(MCOLS).fill(1);
+let MPINK=Array.from({length:MCOLS},()=>Math.random()<.12);
+
+let mLast=0;
+function drawMatrix(ts){
+  if(ts-mLast>50){
+    mLast=ts;
+    MX.fillStyle='rgba(0,0,0,.06)';
+    MX.fillRect(0,0,MC.width,MC.height);
+    MX.font=MFS+'px monospace';
+    MDROPS.forEach((y,i)=>{
+      const ch=MCHARS[Math.floor(Math.random()*MCHARS.length)];
+      if(MPINK[i]){
+        MX.fillStyle=`hsl(${330+Math.random()*20},100%,${55+Math.random()*15}%)`;
+      } else {
+        MX.fillStyle=`hsl(120,100%,${30+Math.random()*25}%)`;
+      }
+      MX.fillText(ch,i*MFS,y*MFS);
+      if(y*MFS>MC.height&&Math.random()>.975) MDROPS[i]=0;
+      MDROPS[i]++;
+    });
+  }
+  requestAnimationFrame(drawMatrix);
+}
+requestAnimationFrame(drawMatrix);
+
+// ── PARTICLE SYSTEM (POOLED) ─────────────────
+const PC2=document.getElementById('pc');
+const PX=PC2.getContext('2d');
+PC2.width=window.innerWidth;
+PC2.height=window.innerHeight;
+window.addEventListener('resize',()=>{
+  PC2.width=window.innerWidth;
+  PC2.height=window.innerHeight;
+},{passive:true});
+
+const MAX_PARTS=150;
+const parts=[];
+
+class P{
+  constructor(){this.reset(true)}
+  reset(rand=false){
+    this.x=rand?Math.random()*PC2.width:PC2.width/2;
+    this.y=rand?Math.random()*PC2.height:PC2.height/2;
+    this.vx=(Math.random()-.5)*(.5+(rand?0:4));
+    this.vy=(Math.random()-.5)*(.5+(rand?0:4));
+    this.r=Math.random()*1.5+.3;
+    this.life=Math.random()*.8+.2;
+    this.decay=rand?.002+Math.random()*.002:.008+Math.random()*.012;
+    this.col=Math.random()<.5?'#00ff41':'#ff69b4';
+  }
+  update(){
+    this.x+=this.vx;this.y+=this.vy;
+    this.vx*=.99;this.vy*=.99;
+    this.life-=this.decay;
+    if(this.life<=0) this.reset();
+  }
+}
+for(let i=0;i<MAX_PARTS;i++) parts.push(new P());
+
+function burst(x,y,n=25,col='#ff69b4'){
+  let added=0;
+  for(let i=parts.length-1;i>=0&&added<n;i--){
+    if(parts[i].life<.05){
+      parts[i].x=x;parts[i].y=y;
+      parts[i].vx=(Math.random()-.5)*6;
+      parts[i].vy=(Math.random()-.5)*6;
+      parts[i].life=1;
+      parts[i].decay=.015+Math.random()*.01;
+      parts[i].r=Math.random()*3+1;
+      parts[i].col=col;
+      added++;
+    }
+  }
+}
+
+let pLast=0;
+function drawParticles(ts){
+  if(ts-pLast>16){
+    pLast=ts;
+    PX.clearRect(0,0,PC2.width,PC2.height);
+    PX.save();
+    parts.forEach(p=>{
+      p.update();
+      PX.globalAlpha=Math.max(0,p.life);
+      PX.fillStyle=p.col;
+      PX.shadowBlur=6;PX.shadowColor=p.col;
+      PX.beginPath();
+      PX.arc(p.x,p.y,p.r,0,6.28);
+      PX.fill();
+    });
+    PX.restore();
+  }
+  requestAnimationFrame(drawParticles);
+}
+requestAnimationFrame(drawParticles);
+
+// ── HEART RAIN ───────────────────────────────
+const HEMOJIS=['💕','💖','💗','💓','💞','❤️','🥰','💝','🌸','✨','💫','🩷','🫶'];
+let hrInterval=null;
+function spawnHeart(){
+  const h=document.createElement('div');
+  h.className='ht';
+  h.textContent=HEMOJIS[Math.floor(Math.random()*HEMOJIS.length)];
+  const lft=Math.random()*100;
+  h.style.cssText=`left:${lft}vw;font-size:${Math.random()*2+.8}rem`;
+  const dur=Math.random()*4+4;
+  h.style.animation=`hfall ${dur}s linear forwards`;
+  document.getElementById('hr').appendChild(h);
+  burst(lft/100*window.innerWidth,60,6,'#ff69b4');
+  setTimeout(()=>h.remove(),dur*1000);
+}
+function startHeartRain(){
+  document.getElementById('hr').style.display='block';
+  for(let i=0;i<35;i++) setTimeout(spawnHeart,i*100);
+  hrInterval=setInterval(spawnHeart,350);
+}
+
+// ── COUNTDOWN ───────────────────────────────
+function startCountdown(){
+  const target=new Date(NEXT_MEETUP).getTime();
+  function tick(){
+    const diff=target-Date.now();
+    const el=document.getElementById('cdval');
+    if(!el) return;
+    if(diff<=0){el.textContent='THE DAY IS HERE 🥹';return}
+    const d=Math.floor(diff/864e5);
+    const h=Math.floor((diff%864e5)/36e5);
+    const m=Math.floor((diff%36e5)/6e4);
+    const s=Math.floor((diff%6e4)/1e3);
+    el.textContent=`${String(d).padStart(2,'0')}D  ${String(h).padStart(2,'0')}H  ${String(m).padStart(2,'0')}M  ${String(s).padStart(2,'0')}S`;
+  }
+  tick();
+  setInterval(tick,1000);
+}
+
+// ── SCREEN SHAKE ─────────────────────────────
+const TRM=document.getElementById('terminal');
+function shake(intensity=4,duration=150){
+  const steps=Math.floor(duration/20);
+  let i=0;
+  const iv=setInterval(()=>{
+    TRM.style.transform=`translate(${(Math.random()-.5)*intensity*2}px,${(Math.random()-.5)*intensity}px)`;
+    if(++i>=steps){clearInterval(iv);TRM.style.transform='none'}
+  },20);
+}
+
+// ── TERMINAL ENGINE ──────────────────────────
+const T=document.getElementById('terminal');
+const Q=[];
+let tDelay=0;
+
+function q(text,cls='cg',delay=0,special=null){
+  Q.push({text,cls,delay,special});
+}
+
+function buildQ(){
+  q(`██╗      ██████╗ ██╗   ██╗███████╗    ███████╗██╗  ██╗███████╗
+██║     ██╔═══██╗██║   ██║██╔════╝    ██╔════╝╚██╗██╔╝██╔════╝
+██║     ██║   ██║██║   ██║█████╗      █████╗   ╚███╔╝ █████╗
+██║     ██║   ██║╚██╗ ██╔╝██╔══╝      ██╔══╝   ██╔██╗ ██╔══╝
+███████╗╚██████╔╝ ╚████╔╝ ███████╗    ███████╗██╔╝ ██╗███████╗
+╚══════╝ ╚═════╝   ╚═══╝  ╚══════╝    ╚══════╝╚═╝  ╚═╝╚══════╝`,'cp',0,'ascii');
+
+  q('','cg',150);
+  q(`  > LOVE.EXE v${MONTHS}.0.0 — QUANTUM ROMANCE EDITION`,'cg gg',200);
+  q(`  > BUILD 06-OCT-2026  |  UPTIME: ${MONTHS} MONTHS  |  STATUS: HOPELESSLY IN LOVE`,'cd',200);
+  q('','cg',100);
+  q('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━','cd',100);
+  q('','cg',100);
+
+  // BOOT CHECKS
+  q('> [SYS] RUNNING BOOT DIAGNOSTICS...','cc',500,'sfx:granted');
+  q('  [✓] BIOS ......................... HeartOS 2026 — LOADED','cg',250,'sfx:tick');
+  q('  [✓] Memory ....................... 8 months — zero corruption','cg',250,'sfx:tick');
+  q('  [✓] GPU .......................... Rendering her smile @ 144fps 😭','cp',250,'sfx:tick');
+  q('  [✓] Network ...................... LDR bridge — signal STRONG','cg',250,'sfx:tick');
+  q('  [✓] Firewall ..................... Distance firewall BYPASSED ❤️','cg',250,'sfx:tick');
+  q('  [✓] Anti-virus ................... Zero red flags — she is PERFECT','cg',250,'sfx:tick');
+  q('  [✓] Kernel panic prevention ....... She texts back — STABLE','cp',250,'sfx:tick');
+  q('  [!] WARNING: Dangerously cute levels detected ⚠️','cy',400,'sfx:alert');
+  q('  [>] Override: PROCEED — worth every risk','cp',300,'sfx:tick');
+  q('','cg',80);
+  q('  [✓] ALL SYSTEMS: NOMINAL 💚','cg gg',400,'sfx:granted');
+  q('','cg',80);
+  q('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━','cd',120);
+  q('','cg',80);
+
+  // CLASSIFIED
+  q('> [SEC] ACCESSING CLASSIFIED DATABASE...','cy',600,'sfx:laser');
+  q('  ┌────────────────────────────────────────────────────────────┐','cd',150);
+  q(`  │  TARGET ID    : ${HER_NAME.toUpperCase().padEnd(43)}│`,'cw',180,'sfx:tick');
+  q('  │  CLEARANCE    : ⭐ LEVEL INFINITE — MOST IMPORTANT PERSON  │','cy',180,'sfx:tick');
+  q('  │  THREAT CLASS : DANGEROUSLY CUTE — HANDLE WITH LOVE 🥹     │','cp',180,'sfx:tick');
+  q(`  │  LDR STATUS   : DISTANCE ${DISTANCE.padEnd(34)}│`,'cc',180,'sfx:tick');
+  q(`  │  SINCE        : ${START_DATE.padEnd(44)}│`,'cg',180,'sfx:tick');
+  q(`  │  MONTHS       : ${MONTHS} — and counting ♾️                        │`,'cp',180,'sfx:tick');
+  q('  └────────────────────────────────────────────────────────────┘','cd',150);
+  q('','cg',80);
+
+  // AUTH
+  q('> [AUTH] INITIATING AUTHENTICATION...','cc',600,'sfx:laser');
+  q('  > Scanning heartbeat ............. ♥ ♥ ♥ — FOUND','cp',350,'sfx:tick');
+  q('  > Verifying love signature ........ MATCH CONFIRMED 💚','cg',350,'sfx:tick');
+  q('  > Password prompt: [ _____ ]','cg',300);
+  q('  > Input: ● ● ● ● ● ● ● ● ●','cd',300,'sfx:tick');
+  q('  > Decrypting... [GLITCH DETECTED]','cr',300,'sfx:glitch');
+  q('  > Self-correcting... standby...','cy',300);
+  q('  > [✓] ACCESS GRANTED — She\'s been waiting. 💚','cg gg',500,'sfx:granted');
+  q('','cg',80);
+  q('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━','cd',120);
+  q('','cg',80);
+
+  // MEMORY SCAN
+  q('> [MEM] SCANNING relationship_data.db','cg',600,'sfx:laser');
+  q('','cg',80);
+  MEMORIES.forEach((mem,i)=>{
+    const col=i===MEMORIES.length-1?'cp gp':'cg';
+    q(`  [MONTH ${i+1}] ${mem}`,col,480,{type:'prog',id:`pb${i}`,pct:Math.round((i+1)/MEMORIES.length*100),mi:i});
+  });
+  q('','cg',80);
+  q('  [✓] MEMORIES LOADED    : '+MEMORIES.length,'cg',250,'sfx:tick');
+  q('  [✓] INTEGRITY          : 100% — not a single bad one','cg',250,'sfx:tick');
+  q('  [✓] HAPPINESS INDEX    : ∞ — she broke the counter 😭💕','cp',250,'sfx:tick');
+  q('','cg',80);
+  q('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━','cd',120);
+  q('','cg',80);
+
+  // STATS
+  q('> [STAT] LOADING heart_stats.json','cc',600,'sfx:laser');
+  q('','cg',80);
+  q('STATS','cg',80,'stats');
+  q('','cg',80);
+  q('  [>] Love output ......... ∞ INFINITE — no upper bound','cp',300,'sfx:tick');
+  q('  [>] Miss her level ...... CRITICAL — 9999/10 every day','cp',300,'sfx:tick');
+  q('  [>] Smile trigger ....... ACTIVE 24/7 — she causes it ☀️','cp',300,'sfx:tick');
+  q('  [>] Future plans ........ ALL INCLUDE HER — no exceptions ♾️','cp',300,'sfx:tick');
+  q('  [>] Regrets ............. ZERO. Not even one.','cg',300,'sfx:tick');
+  q('','cg',80);
+  q('  > WARNING ⚠️  Love levels EXCEEDING all known limits','cr',450,'sfx:alert');
+  q('  > RESPONSE: No override. Let it overflow. She deserves it all.','cp gp',400);
+  q('','cg',80);
+  q('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━','cd',120);
+  q('','cg',80);
+
+  // COUNTDOWN
+  q('> [TIME] next_meetup_countdown.exe','cc',600,'sfx:countdown');
+  q('  > Target locked. Counting every second. ⏳','cw',300,'sfx:tick');
+  q('  > Mission: Hold her. Actually hold her. 🤍','cp',300,'sfx:tick');
+  q('','cg',80);
+  q('COUNTDOWN','cg',80,'countdown');
+  q('','cg',80);
+  q('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━','cd',150);
+  q('','cg',80);
+
+  // LETTER
+  q('> [ENC] DECRYPTING love_letter_classified.txt','cp',700,'sfx:decrypt');
+  q('  [           ]   0%  — breaking encryption...','cg',250);
+  q('  [███        ]  30%  — cracking cipher...','cg',500);
+  q('  [██████     ]  60%  — almost there...','cg',500,'sfx:tick');
+  q('  [█████████  ]  90%  — words unlocking...','cp',500,'sfx:tick');
+  q('  [███████████] 100%  — DECRYPTED 💚','cg gg',600,'sfx:granted');
+  q('','cg',80);
+  q('  ⬇  CLASSIFIED — FOR HER EYES ONLY  ⬇','cp gp',300);
+  q('','cg',80);
+  q('LETTER','cg',200,'letter');
+  q('','cg',80);
+  q('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━','cd',300);
+  q('','cg',80);
+
+  // STATUS
+  q('> [SYS] FINAL MISSION STATUS:','cg',600,'sfx:laser');
+  q(`  [✓] Love ${HER_NAME} ............ COMPLETE ✅`,'cg',280,'sfx:tick');
+  q('  [✓] Make her smile ........... COMPLETE ✅','cg',280,'sfx:tick');
+  q('  [✓] Keep her safe ............ COMPLETE ✅','cg',280,'sfx:tick');
+  q('  [✓] Love her forever ......... IN PROGRESS ████████░░ ∞%','cp',280,'sfx:tick');
+  q('','cg',80);
+  q(`  UPTIME  : ${MONTHS} months — zero crashes, zero restarts`,'cc',250,'sfx:tick');
+  q('  STATUS  : IN LOVE — hopelessly, happily, completely 💚','cp',250,'sfx:tick');
+  q('  NEXT    : FOREVER — LOVE.EXE never stops ♾️','cg',250,'sfx:tick');
+  q('','cg',80);
+  q('FINAL','cg',500,'final');
+}
+
+// ── RENDER ───────────────────────────────────
+function render(item){
+  // SFX string shortcuts
+  if(typeof item.special==='string' && item.special.startsWith('sfx:')){
+    const sfxKey=item.special.replace('sfx:','');
+    if(SFX[sfxKey]) SFX[sfxKey]();
+    item.special=null;
+  }
+
+  const scroll=()=>
+    window.scrollTo({top:document.body.scrollHeight,behavior:'smooth'});
+
+  if(item.special==='ascii'){
+    const d=document.createElement('div');
+    d.className='ln on asc';d.textContent=item.text;
+    T.appendChild(d);scroll();return;
+  }
+
+  if(item.special && item.special.type==='prog'){
+    SFX.memFound(item.special.mi||0);
+    const wrap=document.createElement('div');
+    wrap.className='pw ln on';
+    const lbl=document.createElement('span');
+    lbl.className=item.cls;lbl.textContent=item.text;lbl.style.flex='1';
+    const bw=document.createElement('div');bw.className='pb';
+    const bf=document.createElement('div');bf.className='pf';bf.id=item.special.id;
+    bw.appendChild(bf);
+    const pl=document.createElement('span');
+    pl.className='pl';pl.textContent=item.special.pct+'%';
+    wrap.append(lbl,bw,pl);T.appendChild(wrap);
+    setTimeout(()=>{
+      const el=document.getElementById(item.special.id);
+      if(el) el.style.width=item.special.pct+'%';
+    },120);
+    scroll();return;
+  }
+
+  if(item.special==='stats'){
+    const box=document.createElement('div');
+    box.className='sb';
+    [
+      ['LOVE LEVEL','∞ INFINITE'],
+      ['MISS HER','9999 / 10'],
+      ['MONTHS',''+MONTHS+' 🔥'],
+      ['DISTANCE',DISTANCE],
+      ['FIGHTS SURVIVED','ALL OF THEM 💪'],
+      ['FUTURE PLANS','ALL WITH HER ♾️'],
+    ].forEach(([l,v])=>{
+      const si=document.createElement('div');
+      si.className='si';
+      si.innerHTML=`<span class="sl">${l}</span><span class="sv">${v}</span>`;
+      box.appendChild(si);
+    });
+    T.appendChild(box);
+    setTimeout(()=>{box.style.display='grid'},200);
+    scroll();return;
+  }
+
+  if(item.special==='countdown'){
+    SFX.countdown();
+    const box=document.createElement('div');
+    box.id='cdb';
+    box.innerHTML=`<div class="cdl">⏳ TIME UNTIL NEXT MEETUP — TARGET: ${NEXT_MEETUP}</div>
+      <div class="cdv" id="cdval">calculating...</div>
+      <div class="cds">every second counts — worth every single one</div>`;
+    T.appendChild(box);
+    setTimeout(()=>{box.style.display='block';startCountdown()},200);
+    scroll();return;
+  }
+
+  if(item.special==='letter'){
+    SFX.decrypt();
+    const box=document.createElement('div');
+    box.id='lb';
+    LOVE_LETTER.split('\n').forEach(line=>{
+      const d=document.createElement('div');
+      d.className='ll';d.textContent=line||'\u00a0';
+      box.appendChild(d);
+    });
+    T.appendChild(box);
+    setTimeout(()=>{
+      box.style.display='block';
+      box.querySelectorAll('.ll').forEach((l,i)=>
+        setTimeout(()=>l.classList.add('on'),i*110));
+    },300);
+    scroll();return;
+  }
+
+  if(item.special==='final'){
+    SFX.final();
+    startHeartRain();
+    for(let i=0;i<10;i++){
+      setTimeout(()=>{
+        burst(
+          Math.random()*window.innerWidth,
+          Math.random()*window.innerHeight*.5,
+          50,i%2===0?'#ff69b4':'#00ff41'
+        );
+      },i*180);
+    }
+    const banner=document.createElement('div');
+    banner.id='fb';
+    banner.innerHTML=`<h1>HAPPY ${MONTHS}TH MONTHSARY 💕</h1>
+      <p>${HER_NAME.toUpperCase()} — you are the best thing in my universe.</p>
+      <p style="margin-top:8px;color:#333;font-size:.8rem">LOVE.EXE — running forever ♾️</p>`;
+    T.appendChild(banner);
+    setTimeout(()=>banner.style.display='block',300);
+    scroll();return;
+  }
+
+  // default
+  SFX.line();
+  const d=document.createElement('div');
+  d.className=`ln on ${item.cls}`;
+  d.textContent=item.text;
+  T.appendChild(d);
+  scroll();
+}
+
+function playQ(){
+  Q.forEach(item=>{
+    tDelay+=item.delay;
+    setTimeout(()=>render(item),tDelay);
+  });
+}
+
+// ── BOOT SEQUENCE ─────────────────────────────
+function runBootScreen(cb){
+  const boot=document.getElementById('boot');
+  boot.style.display='flex';
+  const lines=['bl0','bl1','bl2','bl3','bl4','bl5'];
+  const bar=document.getElementById('bbf');
+  const pct=document.getElementById('bpct');
+  SFX.boot();
+  lines.forEach((id,i)=>{
+    setTimeout(()=>{
+      document.getElementById(id).classList.add('on');
+      const p=Math.round((i+1)/lines.length*100);
+      bar.style.width=p+'%';
+      pct.textContent=p+'%';
+      tone(200+i*80,.08,'sine',.05);
+      if(i===lines.length-1){
+        setTimeout(()=>{
+          boot.style.transition='opacity .6s';
+          boot.style.opacity='0';
+          setTimeout(()=>{boot.style.display='none';cb()},700);
+        },600);
+      }
+    },i*420);
+  });
+}
+
+// ── COVER CLICK ───────────────────────────────
+function coverClick(){
+  ax(); // unlock audio on first interaction
+  SFX.granted();
+  const cover=document.getElementById('cover');
+  cover.style.opacity='0';
+  cover.style.transition='opacity .7s';
+
+  // particle burst on click
+  for(let i=0;i<6;i++){
+    setTimeout(()=>burst(
+      Math.random()*window.innerWidth,
+      Math.random()*window.innerHeight,
+      30,i%2===0?'#00ff41':'#ff69b4'
+    ),i*80);
+  }
+
+  setTimeout(()=>{
+    cover.style.display='none';
+    runBootScreen(()=>{
+      buildQ();
+      playQ();
+    });
+  },750);
+}
+</script>
+</body>
+</html>
